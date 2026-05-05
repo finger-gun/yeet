@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import path from 'path';
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import {
   Agent,
   SimpleTools,
@@ -20,6 +20,7 @@ import { skillsMiddleware } from '@sisu-ai/mw-skills';
 import { createTerminalTool } from '@sisu-ai/tool-terminal';
 
 const SKILLS_DIR = path.join(__dirname, '..', '.sisu', 'skills');
+const INVOCATION_DIR = process.env.INIT_CWD ?? process.cwd();
 
 const program = new Command();
 
@@ -31,9 +32,14 @@ program
 program
   .command('compile')
   .description('Compile all .yeet files in the current folder using AI')
-  .option('-d, --dir <path>', 'Project directory to compile', process.cwd())
+  .addOption(
+    new Option('-d, --dir <path>', 'Project directory to compile').default(
+      '.',
+      'current directory',
+    ),
+  )
   .action(async (options) => {
-    const projectDir = path.resolve(options.dir);
+    const projectDir = path.resolve(INVOCATION_DIR, options.dir);
     console.log(`🚀 Compiling Yeet project at: ${projectDir}`);
 
     const terminal = createTerminalTool({

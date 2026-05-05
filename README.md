@@ -1,8 +1,23 @@
-# yeet
+<p align="center">
+  <img src="./assets/logo.png" alt="yeet logo" width="900" />
+</p>
 
-Yeet! Markdown Coding Language Powered By Your AI
+<h1 align="center">yeet</h1>
 
-Write your application in plain English using `.yeet` markdown files. Run `yeet compile` and AI turns your descriptions into a fully working codebase.
+<p align="center">
+  Yeet! Markdown Coding Language Powered By Your AI
+</p>
+
+<p align="center">
+  Write your application in plain English using `.yeet` markdown files. Run `yeet compile` and AI turns your descriptions into a fully working codebase.
+</p>
+
+<p align="center">
+  <span>
+    <img src="https://img.shields.io/badge/AI-Friendly-7C3AED?style=flat-square" alt="AI Friendly" />
+    <img src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square" alt="Apache 2.0 license" />
+  </span>
+</p>
 
 ## How It Works
 
