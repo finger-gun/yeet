@@ -77,22 +77,25 @@ Use `bash` to create the output directory and write each generated file:
 mkdir -p dist
 ```
 
-Then write each file. Use a heredoc to avoid quoting issues, for example:
+Then write each file with `tee` and the `stdin` tool argument. Do **not** use shell redirection (`>`) or heredocs because the terminal tool runs commands without a shell. For example, call `bash` with `command: "tee dist/App.ts"` and pass the generated code as `stdin`.
 
 ```bash
-cat > dist/App.ts << 'YEETEOF'
-<generated code here>
-YEETEOF
+tee dist/App.ts
 ```
 
 ### 8. Generate Project Boilerplate
 
 After writing source files, generate any boilerplate needed to make the project runnable:
 
-**TypeScript / Node.js** — write `dist/package.json` and `dist/tsconfig.json`:
+**TypeScript / Node.js** — write `dist/package.json` and `dist/tsconfig.json` with `tee` and `stdin`:
 
 ```bash
-cat > dist/package.json << 'YEETEOF'
+tee dist/package.json
+```
+
+Use this JSON as the `stdin`:
+
+```json
 {
   "name": "yeet-app",
   "version": "1.0.0",
@@ -100,7 +103,6 @@ cat > dist/package.json << 'YEETEOF'
   "dependencies": {},
   "devDependencies": { "typescript": "^5.0.0", "ts-node": "^10.0.0", "@types/node": "^22.0.0" }
 }
-YEETEOF
 ```
 
 For other languages generate the appropriate project/build files.

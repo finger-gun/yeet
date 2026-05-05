@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 import 'dotenv/config';
+import fs from 'node:fs/promises';
 import path from 'path';
 import { Command, Option } from 'commander';
 import {
   Agent,
-  SimpleTools,
-  InMemoryKV,
-  NullStream,
-  createConsoleLogger,
+  createCtx,
+  execute,
+  getExecutionResult,
+  parseLogLevel,
   type Ctx,
 } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
-import { toolCalling } from '@sisu-ai/mw-tool-calling';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { skillsMiddleware } from '@sisu-ai/mw-skills';
@@ -21,6 +21,21 @@ import { createTerminalTool } from '@sisu-ai/tool-terminal';
 
 const SKILLS_DIR = path.join(__dirname, '..', '.sisu', 'skills');
 const INVOCATION_DIR = process.env.INIT_CWD ?? process.cwd();
+
+async function listFiles(dir: string): Promise<string[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        return listFiles(entryPath);
+      }
+      return [entryPath];
+    }),
+  );
+
+  return files.flat();
+}
 
 const program = new Command();
 
@@ -45,32 +60,40 @@ program
     const terminal = createTerminalTool({
       roots: [projectDir],
       capabilities: { read: true, write: true, delete: false, exec: true },
+      commands: {
+        allow: [
+          'pwd',
+          'ls',
+          'stat',
+          'wc',
+          'head',
+          'tail',
+          'cat',
+          'cut',
+          'sort',
+          'uniq',
+          'grep',
+          'find',
+          'mkdir',
+          'tee',
+        ],
+      },
     });
 
-    const model = openAIAdapter({ model: 'gpt-5.5' });
-
-    const ctx: Ctx = {
+    const ctx = createCtx({
+      model: openAIAdapter({ model: process.env.MODEL || 'gpt-5.5' }),
       input: `Compile the Yeet project located at: ${projectDir}`,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are the Yeet compiler. Use the yeet-compile skill to compile .yeet markdown source files into working code.',
-        },
-      ],
-      model,
-      tools: new SimpleTools(),
-      memory: new InMemoryKV(),
-      stream: new NullStream(),
-      state: {},
-      signal: new AbortController().signal,
-      log: createConsoleLogger({ level: 'info' }),
-    };
+      systemPrompt:
+        'You are the Yeet compiler. Use the yeet-compile skill to compile .yeet markdown source files into working code.',
+      logLevel: parseLogLevel(process.env.LOG_LEVEL) ?? 'warn',
+    });
 
     const app = new Agent()
-      .use(errorBoundary(async (err, c) => { c.log.error(err); }))
+      .use(errorBoundary(async (err: unknown, c: Ctx) => {
+        c.log.error(err);
+        throw err;
+      }))
       .use(traceViewer())
-      .use(skillsMiddleware({ directory: SKILLS_DIR }))
       .use(
         registerTools(terminal.tools, {
           aliases: {
@@ -80,11 +103,23 @@ program
           },
         }),
       )
+      .use(skillsMiddleware({ directory: SKILLS_DIR }))
       .use(inputToMessage)
       .use(conversationBuffer({ window: 20 }))
-      .use(toolCalling);
+      .use(execute);
 
     await app.handler()(ctx);
+    const result = getExecutionResult(ctx);
+    if (result?.text) {
+      console.log(result.text);
+    }
+
+    const outputDir = path.join(projectDir, 'dist');
+    const compiledFiles = await listFiles(outputDir).catch(() => []);
+    if (compiledFiles.length === 0) {
+      throw new Error(`Compilation did not write any files to ${outputDir}`);
+    }
+
     console.log('✅ Compilation complete!');
   });
 
